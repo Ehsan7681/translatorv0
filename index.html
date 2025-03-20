@@ -340,10 +340,19 @@
             cursor: pointer;
             font-family: 'B Titr', sans-serif;
             font-size: var(--font-size-main);
+            margin-left: 0.5rem;
+        }
+
+        .history-item button.view-btn {
+            background-color: #4CAF50;
         }
 
         .history-item button:hover {
             background-color: #cc0000;
+        }
+
+        .history-item button.view-btn:hover {
+            background-color: #45a049;
         }
 
         @media (min-width: 768px) {
@@ -549,7 +558,7 @@
         let lastPrompt = '';
         let geminiModel = 'gemini-1.5-flash';
         let history = JSON.parse(localStorage.getItem('translationHistory')) || [];
-        let srtTimestamps = []; // برای ذخیره تایم‌کدهای فایل SRT
+        let srtBlocks = []; // برای ذخیره بلوک‌های SRT با ساختار کامل
 
         const supportedLanguages = [
             { code: 'fa', name: 'فارسی' },
@@ -788,18 +797,32 @@
                 case 'childish': toneInstruction = 'Translate in a childish tone suitable for kids: '; break;
             }
 
-            const maxChunkSize = 2000;
-            if (textToTranslate.length > maxChunkSize) {
-                const chunks = [];
-                for (let i = 0; i < textToTranslate.length; i += maxChunkSize) {
-                    chunks.push(textToTranslate.slice(i, i + maxChunkSize));
-                }
-                for (const chunk of chunks) {
-                    await translateChunk(chunk, sourceLang, targetLang, toneInstruction);
+            if (srtBlocks.length > 0) {
+                // اگر فایل SRT آپلود شده باشد
+                outputText.value = srtBlocks.map(block => `${block.index}\n${block.timestamp}\n${block.text}`).join('\n\n');
+                adjustTextareaHeight();
+                for (let i = 0; i < srtBlocks.length; i++) {
                     if (!isTranslating) break;
+                    const translatedText = await translateChunk(srtBlocks[i].text, sourceLang, targetLang, toneInstruction);
+                    srtBlocks[i].text = translatedText;
+                    outputText.value = srtBlocks.map(block => `${block.index}\n${block.timestamp}\n${block.text}`).join('\n\n');
+                    adjustTextareaHeight();
                 }
             } else {
-                await translateChunk(textToTranslate, sourceLang, targetLang, toneInstruction);
+                // ترجمه متن عادی
+                const maxChunkSize = 2000;
+                if (textToTranslate.length > maxChunkSize) {
+                    const chunks = [];
+                    for (let i = 0; i < textToTranslate.length; i += maxChunkSize) {
+                        chunks.push(textToTranslate.slice(i, i + maxChunkSize));
+                    }
+                    for (const chunk of chunks) {
+                        await translateChunk(chunk, sourceLang, targetLang, toneInstruction);
+                        if (!isTranslating) break;
+                    }
+                } else {
+                    await translateChunk(textToTranslate, sourceLang, targetLang, toneInstruction);
+                }
             }
 
             if (isTranslating) {
@@ -812,11 +835,11 @@
         async function translateChunk(text, sourceLang, targetLang, toneInstruction) {
             lastPrompt = `${toneInstruction}"${text}" from ${sourceLang} to ${targetLang}. Provide only the translated text in the target language.`;
             if (currentModel === 'lm-studio') {
-                await translateWithLmStudio(lastPrompt);
+                return await translateWithLmStudio(lastPrompt);
             } else if (currentModel === 'gemini') {
-                await translateWithGemini(lastPrompt);
+                return await translateWithGemini(lastPrompt);
             } else if (currentModel === 'openrouter') {
-                await translateWithOpenRouter(lastPrompt);
+                return await translateWithOpenRouter(lastPrompt);
             }
         }
 
@@ -838,7 +861,7 @@
                 const decoder = new TextDecoder();
                 currentStream = reader;
 
-                let fullTranslation = outputText.value;
+                let fullTranslation = '';
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done || !isTranslating) break;
@@ -850,19 +873,23 @@
                             if (data === '[DONE]') continue;
                             const parsed = JSON.parse(data);
                             fullTranslation += parsed.choices[0].text || '';
-                            outputText.value = fullTranslation;
-                            outputText.scrollTop = outputText.scrollHeight;
-                            adjustTextareaHeight();
+                            if (srtBlocks.length === 0) {
+                                outputText.value = outputText.value + fullTranslation;
+                                outputText.scrollTop = outputText.scrollHeight;
+                                adjustTextareaHeight();
+                            }
                         }
                     }
                 }
                 partialTranslation = fullTranslation;
+                return fullTranslation;
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     console.error('خطا در LM Studio:', error);
                     translationStatus.textContent = 'خطا در اتصال به LM Studio';
                     isTranslating = false;
                 }
+                return '';
             } finally {
                 currentStream = null;
             }
@@ -900,16 +927,20 @@
                     fullTranslation = `${formalPart}\n\nخلاصه غیررسمی:\n${informalSummary}`;
                 }
 
-                outputText.value = outputText.value ? outputText.value + '\n' + fullTranslation : fullTranslation;
-                outputText.scrollTop = outputText.scrollHeight;
-                adjustTextareaHeight();
-                partialTranslation = outputText.value;
+                if (srtBlocks.length === 0) {
+                    outputText.value = outputText.value ? outputText.value + '\n' + fullTranslation : fullTranslation;
+                    outputText.scrollTop = outputText.scrollHeight;
+                    adjustTextareaHeight();
+                }
+                partialTranslation = fullTranslation;
+                return fullTranslation;
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     console.error('خطا در Gemini:', error);
                     translationStatus.textContent = error.message.includes('401') ? 'کلید API Gemini نامعتبر است' : 'خطا در اتصال به Gemini';
                     isTranslating = false;
                 }
+                return '';
             } finally {
                 currentStream = null;
             }
@@ -937,7 +968,7 @@
                 const decoder = new TextDecoder();
                 currentStream = reader;
 
-                let fullTranslation = outputText.value;
+                let fullTranslation = '';
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done || !isTranslating) break;
@@ -949,19 +980,23 @@
                             if (data === '[DONE]') continue;
                             const parsed = JSON.parse(data);
                             fullTranslation += parsed.choices[0].delta.content || '';
-                            outputText.value = fullTranslation;
-                            outputText.scrollTop = outputText.scrollHeight;
-                            adjustTextareaHeight();
+                            if (srtBlocks.length === 0) {
+                                outputText.value = fullTranslation;
+                                outputText.scrollTop = outputText.scrollHeight;
+                                adjustTextareaHeight();
+                            }
                         }
                     }
                 }
                 partialTranslation = fullTranslation;
+                return fullTranslation;
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     console.error('خطا در OpenRouter:', error);
                     translationStatus.textContent = 'خطا در اتصال به OpenRouter';
                     isTranslating = false;
                 }
+                return '';
             } finally {
                 currentStream = null;
             }
@@ -985,7 +1020,7 @@
             inputText.value = '';
             outputText.value = '';
             partialTranslation = '';
-            srtTimestamps = []; // پاک کردن تایم‌کدها
+            srtBlocks = []; // پاک کردن بلوک‌های SRT
             translationStatus.textContent = '';
             detectedLang.textContent = 'تشخیص خودکار';
             adjustTextareaHeight();
@@ -998,6 +1033,7 @@
             const detected = detectedLang.textContent;
             detectedLang.textContent = supportedLanguages.find(lang => lang.code === outputLanguage.value)?.name || 'تشخیص خودکار';
             outputLanguage.value = detected === 'فارسی' ? 'fa' : detected === 'انگلیسی' ? 'en' : detected === 'عربی' ? 'ar' : 'fa';
+            srtBlocks = [];
             adjustTextareaHeight();
         }
 
@@ -1019,7 +1055,7 @@
                     <w:body>
                         <w:p>
                             <w:r>
-                                <w:t xml:space="preserve">${outputText.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">')}</w:t>
+                                <w:t xml:space="preserve">${outputText.value.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/\n/g, '</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">')}</w:t>
                             </w:r>
                         </w:p>
                     </w:body>
@@ -1040,16 +1076,10 @@
             }
 
             let srtContent = '';
-            const inputLines = inputText.value.split('\n\n');
-            const outputLines = outputText.value.split('\n\n');
-
-            if (srtTimestamps.length > 0 && srtTimestamps.length === outputLines.length) {
-                // استفاده از تایم‌کدهای اصلی فایل SRT
-                srtTimestamps.forEach((timestamp, index) => {
-                    srtContent += `${index + 1}\n${timestamp}\n${outputLines[index] || ''}\n\n`;
-                });
+            if (srtBlocks.length > 0) {
+                srtContent = srtBlocks.map(block => `${block.index}\n${block.timestamp}\n${block.text}`).join('\n\n');
             } else {
-                // تولید تایم‌کد پیش‌فرض
+                const outputLines = outputText.value.split('\n\n');
                 outputLines.forEach((line, index) => {
                     const startTime = new Date(index * 2000).toISOString().substr(11, 12).replace('.', ',');
                     const endTime = new Date((index + 1) * 2000).toISOString().substr(11, 12).replace('.', ',');
@@ -1067,8 +1097,9 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            if (file.type === 'text/plain') {
+            if (file.type === 'text/plain' && !file.name.endsWith('.srt')) {
                 inputText.value = await file.text();
+                srtBlocks = [];
             } else if (file.name.endsWith('.docx')) {
                 const arrayBuffer = await file.arrayBuffer();
                 const zip = new JSZip();
@@ -1077,6 +1108,7 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(xml, 'application/xml');
                 inputText.value = doc.querySelector('body').textContent;
+                srtBlocks = [];
             } else if (file.type === 'application/pdf') {
                 const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
                 let text = '';
@@ -1086,16 +1118,20 @@
                     text += content.items.map(item => item.str).join(' ') + '\n';
                 }
                 inputText.value = text;
+                srtBlocks = [];
             } else if (file.name.endsWith('.srt')) {
                 const text = await file.text();
-                const lines = text.split('\n\n');
-                srtTimestamps = [];
+                const blocks = text.split('\n\n');
+                srtBlocks = [];
                 let subtitleText = '';
-                lines.forEach((block, index) => {
-                    const parts = block.split('\n');
-                    if (parts.length >= 3) {
-                        srtTimestamps.push(parts[1]); // ذخیره تایم‌کد
-                        subtitleText += parts.slice(2).join('\n') + (index < lines.length - 1 ? '\n\n' : '');
+                blocks.forEach((block, index) => {
+                    const lines = block.trim().split('\n');
+                    if (lines.length >= 3) {
+                        const indexLine = lines[0];
+                        const timestamp = lines[1];
+                        const subtitle = lines.slice(2).join('\n');
+                        srtBlocks.push({ index: indexLine, timestamp: timestamp, text: subtitle });
+                        subtitleText += subtitle + (index < blocks.length - 1 ? '\n\n' : '');
                     }
                 });
                 inputText.value = subtitleText;
@@ -1136,9 +1172,25 @@
             history.forEach((item, index) => {
                 const div = document.createElement('div');
                 div.className = 'history-item';
-                div.innerHTML = `<span>${item.date}: ${item.input.slice(0, 50)}... -> ${item.output.slice(0, 50)}...</span><button onclick="deleteHistoryItem(${index})">حذف</button>`;
+                div.innerHTML = `
+                    <span>${item.date}: ${item.input.slice(0, 50)}... -> ${item.output.slice(0, 50)}...</span>
+                    <div>
+                        <button class="view-btn" onclick="viewHistoryItem(${index})">مشاهده</button>
+                        <button onclick="deleteHistoryItem(${index})">حذف</button>
+                    </div>
+                `;
                 historyList.appendChild(div);
             });
+        }
+
+        window.viewHistoryItem = function(index) {
+            const item = history[index];
+            inputText.value = item.input;
+            outputText.value = item.output;
+            adjustTextareaHeight();
+            translationStatus.textContent = 'ترجمه از تاریخچه بارگذاری شد';
+            setTimeout(() => translationStatus.textContent = '', 2000);
+            srtBlocks = []; // اگر SRT بود، پاک می‌کنیم چون تاریخچه ممکنه SRT نباشه
         }
 
         window.deleteHistoryItem = function(index) {
