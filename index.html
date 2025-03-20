@@ -19,8 +19,8 @@
             --shadow-color: rgba(0, 0, 0, 0.1);
             --status-connected: #4CAF50;
             --status-disconnected: #F44336;
-            --font-size-ui: 14px;
-            --font-size-text: 16px;
+            --font-size-ui: clamp(12px, 3vw, 14px);
+            --font-size-text: clamp(14px, 4vw, 16px);
         }
 
         [data-theme="dark"] {
@@ -81,14 +81,6 @@
             gap: 0.5rem;
         }
 
-        .theme-toggle {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--text-color);
-            font-size: 1.2rem;
-        }
-
         .connection-status {
             display: flex;
             align-items: center;
@@ -121,7 +113,7 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            min-height: 200px;
+            min-height: 150px;
             width: 100%;
         }
 
@@ -151,7 +143,7 @@
         }
 
         .auto-detect {
-            font-size: 0.8rem;
+            font-size: clamp(0.7rem, 2vw, 0.8rem);
             color: var(--secondary-color);
         }
 
@@ -164,7 +156,7 @@
             width: 100%;
             height: 100%;
             border: none;
-            resize: none;
+            resize: vertical;
             background-color: transparent;
             color: var(--text-color);
             font-size: var(--font-size-text);
@@ -176,18 +168,18 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 1rem;
+            gap: 0.5rem;
             margin: 1rem 0;
         }
 
         .translate-button, .stop-button, .clear-button {
-            padding: 0.8rem 2rem;
+            padding: 0.6rem 1.5rem;
             background-color: var(--primary-color);
             color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: clamp(1rem, 3vw, 1.2rem);
+            font-size: clamp(0.9rem, 3vw, 1.2rem);
             transition: background-color 0.2s ease;
         }
 
@@ -301,16 +293,51 @@
             background-color: var(--accent-color);
         }
 
+        .theme-toggle {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px var(--shadow-color);
+            z-index: 1000;
+            font-size: 1.2rem;
+        }
+
         @media (min-width: 768px) {
             .translator {
                 flex-direction: row;
             }
             .text-panel {
                 width: 50%;
+                min-height: 250px;
             }
             .controls {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 0.5rem;
+            }
+            .text-panel {
+                min-height: 120px;
+            }
+            .button-container {
+                flex-direction: column;
+            }
+            .translate-button, .stop-button, .clear-button {
+                width: 100%;
             }
         }
     </style>
@@ -334,7 +361,6 @@
                     <span class="status-indicator"></span>
                     <span class="status-text">اتصال به OpenRouter</span>
                 </div>
-                <button class="theme-toggle" id="themeToggle">🌙</button>
             </div>
         </header>
 
@@ -360,7 +386,6 @@
                                 <option value="fa" selected>فارسی</option>
                                 <option value="en">انگلیسی</option>
                                 <option value="ar">عربی</option>
-                                <!-- سایر گزینه‌ها -->
                             </select>
                         </div>
                     </div>
@@ -381,8 +406,11 @@
                     <h3>لحن ترجمه</h3>
                     <div class="control-options">
                         <div class="control-option active" data-tone="formal">رسمی</div>
+                        <div class="control-option" data-tone="informal">غیررسمی</div>
+                        <div class="control-option" data-tone="literary">ادبی</div>
+                        <div class="control-option" data-tone="scientific">علمی</div>
+                        <div class="control-option" data-tone="summary">خلاصه</div>
                         <div class="control-option" data-tone="friendly">دوستانه</div>
-                        <!-- سایر گزینه‌ها -->
                     </div>
                 </div>
 
@@ -409,9 +437,9 @@
             برنامه‌نویس: احسان شمسی
         </footer>
     </div>
+    <button class="theme-toggle" id="themeToggle">🌙</button>
 
     <script>
-        // DOM Elements
         const themeToggle = document.getElementById('themeToggle');
         const body = document.body;
         const inputText = document.getElementById('inputText');
@@ -431,7 +459,6 @@
         const verifyOpenRouterApiButton = document.getElementById('verifyOpenRouterApiButton');
         const modelOptions = document.querySelectorAll('.control-option[data-model]');
 
-        // Variables
         let currentTheme = 'light';
         let currentTone = 'formal';
         let currentModel = 'lm-studio';
@@ -440,11 +467,10 @@
         let isOpenRouterConnected = false;
         let currentStream = null;
         let abortController = null;
-        let isPaused = false;
+        let isTranslating = false;
         let partialTranslation = '';
         let lastPrompt = '';
 
-        // Load API keys from localStorage
         function loadApiKeys() {
             geminiApiKey.value = localStorage.getItem('geminiApiKey') || '';
             openRouterApiKey.value = localStorage.getItem('openRouterApiKey') || '';
@@ -452,20 +478,17 @@
             if (openRouterApiKey.value) checkOpenRouterConnection();
         }
 
-        // Save API keys to localStorage
         function saveApiKeys() {
             localStorage.setItem('geminiApiKey', geminiApiKey.value.trim());
             localStorage.setItem('openRouterApiKey', openRouterApiKey.value.trim());
         }
 
-        // Initialize
         function init() {
             loadApiKeys();
             checkLmConnection();
             setupEventListeners();
         }
 
-        // Check connection to LM Studio
         function checkLmConnection() {
             fetch('http://localhost:1234/v1/models')
                 .then(response => {
@@ -484,7 +507,6 @@
                 });
         }
 
-        // Check connection to Gemini API
         function checkGeminiConnection() {
             const apiKey = geminiApiKey.value.trim();
             if (!apiKey) {
@@ -493,7 +515,6 @@
                 geminiStatus.querySelector('.status-text').textContent = 'عدم اتصال به Gemini';
                 return;
             }
-
             fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -508,15 +529,13 @@
                         throw new Error('اتصال برقرار نشد');
                     }
                 })
-                .catch(error => {
+                .catch(() => {
                     isGeminiConnected = false;
                     geminiStatus.querySelector('.status-indicator').classList.remove('connected');
                     geminiStatus.querySelector('.status-text').textContent = 'عدم اتصال به Gemini';
-                    console.error('خطا در اتصال به Gemini:', error);
                 });
         }
 
-        // Check connection to OpenRouter API
         function checkOpenRouterConnection() {
             const apiKey = openRouterApiKey.value.trim();
             if (!apiKey) {
@@ -525,7 +544,6 @@
                 openRouterStatus.querySelector('.status-text').textContent = 'عدم اتصال به OpenRouter';
                 return;
             }
-
             fetch('https://openrouter.ai/api/v1/models', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${apiKey}` }
@@ -539,31 +557,24 @@
                         throw new Error('اتصال برقرار نشد');
                     }
                 })
-                .catch(error => {
+                .catch(() => {
                     isOpenRouterConnected = false;
                     openRouterStatus.querySelector('.status-indicator').classList.remove('connected');
                     openRouterStatus.querySelector('.status-text').textContent = 'عدم اتصال به OpenRouter';
-                    console.error('خطا در اتصال به OpenRouter:', error);
                 });
         }
 
-        // Setup event listeners
         function setupEventListeners() {
             themeToggle.addEventListener('click', toggleTheme);
             translateButton.addEventListener('click', translateText);
-            stopButton.addEventListener('click', togglePauseContinue);
+            stopButton.addEventListener('click', stopTranslation);
             clearButton.addEventListener('click', clearText);
-            toneOptions.forEach(option => {
-                option.addEventListener('click', () => setActiveTone(option));
-            });
-            modelOptions.forEach(option => {
-                option.addEventListener('click', () => setActiveModel(option));
-            });
+            toneOptions.forEach(option => option.addEventListener('click', () => setActiveTone(option)));
+            modelOptions.forEach(option => option.addEventListener('click', () => setActiveModel(option)));
             verifyGeminiApiButton.addEventListener('click', () => { saveApiKeys(); checkGeminiConnection(); });
             verifyOpenRouterApiButton.addEventListener('click', () => { saveApiKeys(); checkOpenRouterConnection(); });
         }
 
-        // Toggle theme
         function toggleTheme() {
             if (currentTheme === 'light') {
                 body.setAttribute('data-theme', 'dark');
@@ -576,22 +587,20 @@
             }
         }
 
-        // Set active tone
         function setActiveTone(selectedOption) {
             toneOptions.forEach(option => option.classList.remove('active'));
             selectedOption.classList.add('active');
             currentTone = selectedOption.dataset.tone;
         }
 
-        // Set active model
         function setActiveModel(selectedOption) {
             modelOptions.forEach(option => option.classList.remove('active'));
             selectedOption.classList.add('active');
             currentModel = selectedOption.dataset.model;
         }
 
-        // Translate text
         async function translateText() {
+            if (isTranslating) return; // جلوگیری از اجرای چندباره
             if ((!isLmConnected && currentModel === 'lm-studio') || 
                 (!isGeminiConnected && currentModel.includes('gemini')) || 
                 (!isOpenRouterConnected && currentModel === 'openrouter') || 
@@ -601,32 +610,27 @@
                 return;
             }
 
-            if (isPaused && currentStream) {
-                resumeTranslation();
-                return;
-            }
-
-            outputText.value = partialTranslation;
+            outputText.value = '';
             translationStatus.textContent = 'در حال ترجمه...';
             stopButton.textContent = 'توقف ترجمه';
             stopButton.classList.remove('continue');
-            isPaused = false;
+            isTranslating = true;
+            abortController = new AbortController();
 
             const textToTranslate = inputText.value;
             const targetLang = outputLanguage.value;
 
             let toneInstruction = '';
             switch (currentTone) {
-                case 'formal': toneInstruction = 'Translate formally: '; break;
-                case 'friendly': toneInstruction = 'Translate in a friendly tone: '; break;
-                case 'creative': toneInstruction = 'Translate creatively: '; break;
-                case 'conversational': toneInstruction = 'Translate conversationally: '; break;
-                case 'summary': toneInstruction = 'Summarize and translate: '; break;
-                case 'literal': toneInstruction = 'Translate literally: '; break;
+                case 'formal': toneInstruction = 'Translate formally from Persian: '; break;
+                case 'informal': toneInstruction = 'Translate informally from Persian: '; break;
+                case 'literary': toneInstruction = 'Translate in a literary style from Persian: '; break;
+                case 'scientific': toneInstruction = 'Translate in a scientific tone from Persian: '; break;
+                case 'summary': toneInstruction = 'First translate formally from Persian, then summarize informally: '; break;
+                case 'friendly': toneInstruction = 'Translate in a friendly tone from Persian: '; break;
             }
 
-            lastPrompt = `${toneInstruction}"${textToTranslate}" to ${targetLang}. Provide only the translated text.`;
-            abortController = new AbortController();
+            lastPrompt = `${toneInstruction}"${textToTranslate}" to ${targetLang === 'fa' ? 'Persian' : targetLang === 'en' ? 'English' : 'Arabic'}. Provide only the translated text.`;
 
             if (currentModel === 'lm-studio') {
                 await translateWithLmStudio(lastPrompt);
@@ -637,7 +641,6 @@
             }
         }
 
-        // Translate with LM Studio
         async function translateWithLmStudio(prompt) {
             try {
                 const response = await fetch('http://localhost:1234/v1/completions', {
@@ -645,7 +648,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         prompt: prompt,
-                        max_tokens: 500,
+                        max_tokens: 1000,
                         temperature: 0.7,
                         stream: true
                     }),
@@ -659,7 +662,7 @@
                 let fullTranslation = '';
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done || isPaused) break;
+                    if (done || !isTranslating) break;
                     const chunk = decoder.decode(value);
                     const lines = chunk.split('\n');
                     for (const line of lines) {
@@ -669,21 +672,22 @@
                             const parsed = JSON.parse(data);
                             fullTranslation += parsed.choices[0].text || '';
                             outputText.value = fullTranslation;
+                            outputText.scrollTop = outputText.scrollHeight;
                         }
                     }
                 }
-                if (!isPaused) {
+                if (isTranslating) {
                     translationStatus.textContent = 'ترجمه به پایان رسید';
                     partialTranslation = fullTranslation;
                 }
             } catch (error) {
                 if (error.name !== 'AbortError') console.error('خطا در LM Studio:', error);
             } finally {
-                if (!isPaused) currentStream = null;
+                if (isTranslating) currentStream = null;
+                isTranslating = false;
             }
         }
 
-        // Translate with Gemini
         async function translateWithGemini(prompt) {
             const apiKey = geminiApiKey.value.trim();
             const modelEndpoint = currentModel === 'gemini-pro' ? 'gemini-pro' : 
@@ -694,7 +698,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { maxOutputTokens: 2000 }
                     }),
                     signal: abortController.signal
                 });
@@ -702,10 +707,33 @@
                 if (!response.ok) throw new Error(`خطا در پاسخ Gemini: ${response.status}`);
 
                 const data = await response.json();
-                const fullTranslation = data.candidates[0].content.parts[0].text || 'ترجمه دریافت نشد';
-                outputText.value = fullTranslation;
-                translationStatus.textContent = 'ترجمه به پایان رسید';
-                partialTranslation = fullTranslation;
+                let fullTranslation = data.candidates[0].content.parts[0].text || 'ترجمه دریافت نشد';
+
+                if (currentTone === 'summary') {
+                    const formalPart = fullTranslation;
+                    const summaryPrompt = `Summarize informally in ${outputLanguage.value === 'fa' ? 'Persian' : outputLanguage.value === 'en' ? 'English' : 'Arabic'}: "${formalPart}"`;
+                    const summaryResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: summaryPrompt }] }] }),
+                        signal: abortController.signal
+                    });
+                    const summaryData = await summaryResponse.json();
+                    const informalSummary = summaryData.candidates[0].content.parts[0].text || '';
+                    fullTranslation = `${formalPart}\n\nخلاصه غیررسمی:\n${informalSummary}`;
+                }
+
+                outputText.value = '';
+                for (let i = 0; i < fullTranslation.length && isTranslating; i++) {
+                    outputText.value += fullTranslation[i];
+                    outputText.scrollTop = outputText.scrollHeight;
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+
+                if (isTranslating) {
+                    translationStatus.textContent = 'ترجمه به پایان رسید';
+                    partialTranslation = fullTranslation;
+                }
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     console.error('خطا در Gemini:', error);
@@ -714,10 +742,10 @@
                 }
             } finally {
                 currentStream = null;
+                isTranslating = false;
             }
         }
 
-        // Translate with OpenRouter
         async function translateWithOpenRouter(prompt) {
             const apiKey = openRouterApiKey.value.trim();
             try {
@@ -730,6 +758,7 @@
                     body: JSON.stringify({
                         model: 'openai/gpt-3.5-turbo',
                         messages: [{ role: 'user', content: prompt }],
+                        max_tokens: 2000,
                         stream: true
                     }),
                     signal: abortController.signal
@@ -742,7 +771,7 @@
                 let fullTranslation = '';
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done || isPaused) break;
+                    if (done || !isTranslating) break;
                     const chunk = decoder.decode(value);
                     const lines = chunk.split('\n');
                     for (const line of lines) {
@@ -752,69 +781,48 @@
                             const parsed = JSON.parse(data);
                             fullTranslation += parsed.choices[0].delta.content || '';
                             outputText.value = fullTranslation;
+                            outputText.scrollTop = outputText.scrollHeight;
                         }
                     }
                 }
-                if (!isPaused) {
+                if (isTranslating) {
                     translationStatus.textContent = 'ترجمه به پایان رسید';
                     partialTranslation = fullTranslation;
                 }
             } catch (error) {
                 if (error.name !== 'AbortError') console.error('خطا در OpenRouter:', error);
             } finally {
-                if (!isPaused) currentStream = null;
+                if (isTranslating) currentStream = null;
+                isTranslating = false;
             }
         }
 
-        // Resume translation
-        async function resumeTranslation() {
-            translationStatus.textContent = 'در حال ادامه ترجمه...';
+        function stopTranslation() {
+            if (!isTranslating) return;
+
+            if (abortController) {
+                abortController.abort();
+            }
+            isTranslating = false;
+            currentStream = null;
+            partialTranslation = outputText.value;
+            translationStatus.textContent = 'ترجمه متوقف شد';
             stopButton.textContent = 'توقف ترجمه';
             stopButton.classList.remove('continue');
-            isPaused = false;
-
-            abortController = new AbortController();
-            if (currentModel === 'lm-studio') {
-                await translateWithLmStudio(lastPrompt);
-            } else if (currentModel.includes('gemini')) {
-                await translateWithGemini(lastPrompt);
-            } else if (currentModel === 'openrouter') {
-                await translateWithOpenRouter(lastPrompt);
-            }
         }
 
-        // Toggle pause/continue translation
-        function togglePauseContinue() {
-            if (!currentStream) return;
-
-            if (!isPaused) {
-                abortController.abort();
-                partialTranslation = outputText.value;
-                translationStatus.textContent = 'ترجمه متوقف شد';
-                stopButton.textContent = 'ادامه ترجمه';
-                stopButton.classList.add('continue');
-                isPaused = true;
-            } else {
-                resumeTranslation();
-            }
-        }
-
-        // Clear text
         function clearText() {
+            if (isTranslating) stopTranslation();
             inputText.value = '';
             outputText.value = '';
             partialTranslation = '';
             translationStatus.textContent = '';
             stopButton.textContent = 'توقف ترجمه';
             stopButton.classList.remove('continue');
-            isPaused = false;
-            if (currentStream) {
-                abortController.abort();
-                currentStream = null;
-            }
+            isTranslating = false;
+            currentStream = null;
         }
 
-        // Initialize the app
         init();
     </script>
 </body>
