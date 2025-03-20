@@ -423,9 +423,7 @@
                         <button id="verifyOpenRouterApiButton">تأیید OpenRouter</button>
                         <div class="control-options">
                             <div class="control-option active" data-model="lm-studio">LM Studio</div>
-                            <div class="control-option" data-model="gemini-pro">Gemini Pro</div>
-                            <div class="control-option" data-model="gemini-1.5-flash">Gemini 1.5 Flash</div>
-                            <div class="control-option" data-model="gemini-2-flash">Gemini 2 Flash</div>
+                            <div class="control-option" data-model="gemini">Gemini</div>
                             <div class="control-option" data-model="openrouter">OpenRouter</div>
                         </div>
                     </div>
@@ -470,6 +468,7 @@
         let isTranslating = false;
         let partialTranslation = '';
         let lastPrompt = '';
+        let geminiModel = 'gemini-1.5-flash'; // مدل پیش‌فرض، در صورت شناسایی تغییر می‌کند
 
         function loadApiKeys() {
             geminiApiKey.value = localStorage.getItem('geminiApiKey') || '';
@@ -507,7 +506,7 @@
                 });
         }
 
-        function checkGeminiConnection() {
+        async function checkGeminiConnection() {
             const apiKey = geminiApiKey.value.trim();
             if (!apiKey) {
                 isGeminiConnected = false;
@@ -515,25 +514,31 @@
                 geminiStatus.querySelector('.status-text').textContent = 'عدم اتصال به Gemini';
                 return;
             }
-            fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: 'test' }] }] })
-            })
-                .then(response => {
+
+            const models = ['gemini-pro', 'gemini-1.5-flash', 'gemini-2-flash'];
+            for (const model of models) {
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: 'test' }] }] })
+                    });
                     if (response.ok) {
                         isGeminiConnected = true;
+                        geminiModel = model;
                         geminiStatus.querySelector('.status-indicator').classList.add('connected');
-                        geminiStatus.querySelector('.status-text').textContent = 'متصل به Gemini';
-                    } else {
-                        throw new Error('اتصال برقرار نشد');
+                        geminiStatus.querySelector('.status-text').textContent = `متصل به Gemini (${model})`;
+                        break;
                     }
-                })
-                .catch(() => {
-                    isGeminiConnected = false;
-                    geminiStatus.querySelector('.status-indicator').classList.remove('connected');
-                    geminiStatus.querySelector('.status-text').textContent = 'عدم اتصال به Gemini';
-                });
+                } catch (error) {
+                    console.log(`مدل ${model} کار نکرد:`, error);
+                }
+            }
+
+            if (!isGeminiConnected) {
+                geminiStatus.querySelector('.status-indicator').classList.remove('connected');
+                geminiStatus.querySelector('.status-text').textContent = 'عدم اتصال به Gemini';
+            }
         }
 
         function checkOpenRouterConnection() {
@@ -600,9 +605,9 @@
         }
 
         async function translateText() {
-            if (isTranslating) return; // جلوگیری از اجرای چندباره
+            if (isTranslating) return;
             if ((!isLmConnected && currentModel === 'lm-studio') || 
-                (!isGeminiConnected && currentModel.includes('gemini')) || 
+                (!isGeminiConnected && currentModel === 'gemini') || 
                 (!isOpenRouterConnected && currentModel === 'openrouter') || 
                 !inputText.value.trim()) {
                 outputText.value = '';
@@ -634,7 +639,7 @@
 
             if (currentModel === 'lm-studio') {
                 await translateWithLmStudio(lastPrompt);
-            } else if (currentModel.includes('gemini')) {
+            } else if (currentModel === 'gemini') {
                 await translateWithGemini(lastPrompt);
             } else if (currentModel === 'openrouter') {
                 await translateWithOpenRouter(lastPrompt);
@@ -690,11 +695,8 @@
 
         async function translateWithGemini(prompt) {
             const apiKey = geminiApiKey.value.trim();
-            const modelEndpoint = currentModel === 'gemini-pro' ? 'gemini-pro' : 
-                                 currentModel === 'gemini-1.5-flash' ? 'gemini-1.5-flash' : 
-                                 'gemini-2-flash';
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent?key=${apiKey}`, {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -712,7 +714,7 @@
                 if (currentTone === 'summary') {
                     const formalPart = fullTranslation;
                     const summaryPrompt = `Summarize informally in ${outputLanguage.value === 'fa' ? 'Persian' : outputLanguage.value === 'en' ? 'English' : 'Arabic'}: "${formalPart}"`;
-                    const summaryResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}:generateContent?key=${apiKey}`, {
+                    const summaryResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ contents: [{ parts: [{ text: summaryPrompt }] }] }),
