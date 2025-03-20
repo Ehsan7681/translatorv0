@@ -182,7 +182,7 @@
             margin: 1rem 0;
         }
 
-        .translate-button, .stop-button, .clear-button, .swap-button, .copy-button, .save-button {
+        .translate-button, .stop-button, .clear-button, .swap-button, .copy-button, .save-button, .save-srt-button {
             padding: 0.6rem 1.5rem;
             background-color: var(--primary-color);
             color: white;
@@ -192,7 +192,7 @@
             transition: background-color 0.2s ease;
         }
 
-        .translate-button:hover, .swap-button:hover, .copy-button:hover, .save-button:hover {
+        .translate-button:hover, .swap-button:hover, .copy-button:hover, .save-button:hover, .save-srt-button:hover {
             background-color: var(--accent-color);
         }
 
@@ -370,7 +370,7 @@
             .button-container {
                 flex-direction: column;
             }
-            .translate-button, .stop-button, .clear-button, .swap-button, .copy-button, .save-button {
+            .translate-button, .stop-button, .clear-button, .swap-button, .copy-button, .save-button, .save-srt-button {
                 width: 100%;
             }
         }
@@ -431,6 +431,7 @@
                 <button class="swap-button" id="swapButton">جابه‌جایی</button>
                 <button class="copy-button" id="copyButton">کپی</button>
                 <button class="save-button" id="saveButton">ذخیره (Word)</button>
+                <button class="save-srt-button" id="saveSrtButton">ذخیره (SRT)</button>
             </div>
             <div class="translation-status" id="translationStatus"></div>
 
@@ -457,7 +458,7 @@
                         <button id="verifyGeminiApiButton">تأیید Gemini</button>
                         <input type="text" id="openRouterApiKey" placeholder="کلید API OpenRouter">
                         <button id="verifyOpenRouterApiButton">تأیید OpenRouter</button>
-                        <input type="file" id="fileInput" accept=".txt,.docx,.pdf" style="margin-top: 0.5rem;">
+                        <input type="file" id="fileInput" accept=".txt,.docx,.pdf,.srt" style="margin-top: 0.5rem;">
                         <div class="control-options">
                             <div class="control-option active" data-model="lm-studio">LM Studio</div>
                             <div class="control-option" data-model="gemini">Gemini</div>
@@ -517,6 +518,7 @@
         const swapButton = document.getElementById('swapButton');
         const copyButton = document.getElementById('copyButton');
         const saveButton = document.getElementById('saveButton');
+        const saveSrtButton = document.getElementById('saveSrtButton');
         const translationStatus = document.getElementById('translationStatus');
         const geminiApiKey = document.getElementById('geminiApiKey');
         const openRouterApiKey = document.getElementById('openRouterApiKey');
@@ -547,6 +549,7 @@
         let lastPrompt = '';
         let geminiModel = 'gemini-1.5-flash';
         let history = JSON.parse(localStorage.getItem('translationHistory')) || [];
+        let srtTimestamps = []; // برای ذخیره تایم‌کدهای فایل SRT
 
         const supportedLanguages = [
             { code: 'fa', name: 'فارسی' },
@@ -704,6 +707,7 @@
             swapButton.addEventListener('click', swapText);
             copyButton.addEventListener('click', copyToClipboard);
             saveButton.addEventListener('click', saveAsWord);
+            saveSrtButton.addEventListener('click', saveAsSrt);
             toneOptions.forEach(option => option.addEventListener('click', () => setActiveTone(option)));
             modelOptions.forEach(option => option.addEventListener('click', () => setActiveModel(option)));
             verifyGeminiApiButton.addEventListener('click', () => { saveApiKeys(); checkGeminiConnection(); });
@@ -981,6 +985,7 @@
             inputText.value = '';
             outputText.value = '';
             partialTranslation = '';
+            srtTimestamps = []; // پاک کردن تایم‌کدها
             translationStatus.textContent = '';
             detectedLang.textContent = 'تشخیص خودکار';
             adjustTextareaHeight();
@@ -1014,7 +1019,7 @@
                     <w:body>
                         <w:p>
                             <w:r>
-                                <w:t xml:space="preserve">${outputText.value.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/\n/g, '</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">')}</w:t>
+                                <w:t xml:space="preserve">${outputText.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">')}</w:t>
                             </w:r>
                         </w:p>
                     </w:body>
@@ -1026,6 +1031,36 @@
                 translationStatus.textContent = 'فایل Word ذخیره شد';
                 setTimeout(() => translationStatus.textContent = '', 2000);
             });
+        }
+
+        function saveAsSrt() {
+            if (!outputText.value) {
+                translationStatus.textContent = 'هیچ متنی برای ذخیره وجود ندارد';
+                return;
+            }
+
+            let srtContent = '';
+            const inputLines = inputText.value.split('\n\n');
+            const outputLines = outputText.value.split('\n\n');
+
+            if (srtTimestamps.length > 0 && srtTimestamps.length === outputLines.length) {
+                // استفاده از تایم‌کدهای اصلی فایل SRT
+                srtTimestamps.forEach((timestamp, index) => {
+                    srtContent += `${index + 1}\n${timestamp}\n${outputLines[index] || ''}\n\n`;
+                });
+            } else {
+                // تولید تایم‌کد پیش‌فرض
+                outputLines.forEach((line, index) => {
+                    const startTime = new Date(index * 2000).toISOString().substr(11, 12).replace('.', ',');
+                    const endTime = new Date((index + 1) * 2000).toISOString().substr(11, 12).replace('.', ',');
+                    srtContent += `${index + 1}\n${startTime} --> ${endTime}\n${line}\n\n`;
+                });
+            }
+
+            const blob = new Blob([srtContent], { type: 'text/srt;charset=utf-8' });
+            saveAs(blob, 'translation.srt');
+            translationStatus.textContent = 'فایل SRT ذخیره شد';
+            setTimeout(() => translationStatus.textContent = '', 2000);
         }
 
         async function handleFileUpload(event) {
@@ -1051,6 +1086,19 @@
                     text += content.items.map(item => item.str).join(' ') + '\n';
                 }
                 inputText.value = text;
+            } else if (file.name.endsWith('.srt')) {
+                const text = await file.text();
+                const lines = text.split('\n\n');
+                srtTimestamps = [];
+                let subtitleText = '';
+                lines.forEach((block, index) => {
+                    const parts = block.split('\n');
+                    if (parts.length >= 3) {
+                        srtTimestamps.push(parts[1]); // ذخیره تایم‌کد
+                        subtitleText += parts.slice(2).join('\n') + (index < lines.length - 1 ? '\n\n' : '');
+                    }
+                });
+                inputText.value = subtitleText;
             }
             adjustTextareaHeight();
         }
