@@ -467,6 +467,7 @@
                         <button id="verifyGeminiApiButton">تأیید Gemini</button>
                         <input type="text" id="openRouterApiKey" placeholder="کلید API OpenRouter">
                         <button id="verifyOpenRouterApiButton">تأیید OpenRouter</button>
+                        <select id="openRouterModel" style="margin-top: 0.5rem;"></select>
                         <input type="file" id="fileInput" accept=".txt,.docx,.pdf,.srt" style="margin-top: 0.5rem;">
                         <div class="control-options">
                             <div class="control-option active" data-model="lm-studio">LM Studio</div>
@@ -544,10 +545,12 @@
         const restoreHistoryInput = document.getElementById('restoreHistoryInput');
         const restoreHistory = document.getElementById('restoreHistory');
         const clearHistory = document.getElementById('clearHistory');
+        const openRouterModel = document.getElementById('openRouterModel');
 
         let currentTheme = 'light';
         let currentTone = 'formal';
         let currentModel = 'lm-studio';
+        let currentOpenRouterModel = 'openai/gpt-3.5-turbo'; // پیش‌فرض OpenRouter
         let isLmConnected = false;
         let isGeminiConnected = false;
         let isOpenRouterConnected = false;
@@ -558,7 +561,7 @@
         let lastPrompt = '';
         let geminiModel = 'gemini-1.5-flash';
         let history = JSON.parse(localStorage.getItem('translationHistory')) || [];
-        let srtBlocks = []; // برای ذخیره بلوک‌های SRT با ساختار کامل
+        let srtBlocks = [];
 
         const supportedLanguages = [
             { code: 'fa', name: 'فارسی' },
@@ -613,6 +616,7 @@
             adjustTextareaHeight();
             loadCustomization();
             loadSupportedLanguages();
+            loadOpenRouterModels();
         }
 
         function adjustTextareaHeight() {
@@ -703,9 +707,41 @@
                 });
         }
 
+        async function loadOpenRouterModels() {
+            const apiKey = openRouterApiKey.value.trim();
+            const modelSelect = document.getElementById('openRouterModel');
+            
+            if (!apiKey) {
+                modelSelect.innerHTML = '<option value="">ابتدا کلید API را وارد کنید</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch('https://openrouter.ai/api/v1/models', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                if (!response.ok) throw new Error('خطا در گرفتن لیست مدل‌ها');
+                
+                const data = await response.json();
+                const models = data.data;
+                modelSelect.innerHTML = '<option value="">یک مدل انتخاب کنید</option>';
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.name || model.id;
+                    modelSelect.appendChild(option);
+                });
+                modelSelect.value = currentOpenRouterModel; // مدل پیش‌فرض رو انتخاب کن
+            } catch (error) {
+                console.error('خطا در بارگذاری مدل‌ها:', error);
+                modelSelect.innerHTML = '<option value="">خطا در بارگذاری مدل‌ها</option>';
+            }
+        }
+
         function loadSupportedLanguages() {
             outputLanguage.innerHTML = supportedLanguages.map(lang => `<option value="${lang.code}">${lang.name}</option>`).join('');
-            outputLanguage.value = 'fa'; // پیش‌فرض روی فارسی
+            outputLanguage.value = 'fa';
         }
 
         function setupEventListeners() {
@@ -720,7 +756,15 @@
             toneOptions.forEach(option => option.addEventListener('click', () => setActiveTone(option)));
             modelOptions.forEach(option => option.addEventListener('click', () => setActiveModel(option)));
             verifyGeminiApiButton.addEventListener('click', () => { saveApiKeys(); checkGeminiConnection(); });
-            verifyOpenRouterApiButton.addEventListener('click', () => { saveApiKeys(); checkOpenRouterConnection(); });
+            verifyOpenRouterApiButton.addEventListener('click', () => { saveApiKeys(); checkOpenRouterConnection(); loadOpenRouterModels(); });
+            openRouterApiKey.addEventListener('input', loadOpenRouterModels);
+            openRouterModel.addEventListener('change', (e) => {
+                currentOpenRouterModel = e.target.value;
+                if (currentModel === 'openrouter' && currentOpenRouterModel) {
+                    translationStatus.textContent = `مدل OpenRouter انتخاب‌شده: ${currentOpenRouterModel}`;
+                    setTimeout(() => translationStatus.textContent = '', 2000);
+                }
+            });
             fileInput.addEventListener('change', handleFileUpload);
             inputText.addEventListener('input', adjustTextareaHeight);
             outputText.addEventListener('input', adjustTextareaHeight);
@@ -769,7 +813,11 @@
                 (!isOpenRouterConnected && currentModel === 'openrouter') || 
                 !inputText.value.trim()) {
                 outputText.value = '';
-                translationStatus.textContent = 'متن ورودی خالی است';
+                translationStatus.textContent = 'متن ورودی خالی است یا اتصال برقرار نیست';
+                return;
+            }
+            if (currentModel === 'openrouter' && !currentOpenRouterModel) {
+                translationStatus.textContent = 'لطفاً یک مدل OpenRouter انتخاب کنید';
                 return;
             }
 
@@ -798,7 +846,6 @@
             }
 
             if (srtBlocks.length > 0) {
-                // اگر فایل SRT آپلود شده باشد
                 outputText.value = srtBlocks.map(block => `${block.index}\n${block.timestamp}\n${block.text}`).join('\n\n');
                 adjustTextareaHeight();
                 for (let i = 0; i < srtBlocks.length; i++) {
@@ -809,7 +856,6 @@
                     adjustTextareaHeight();
                 }
             } else {
-                // ترجمه متن عادی
                 const maxChunkSize = 2000;
                 if (textToTranslate.length > maxChunkSize) {
                     const chunks = [];
@@ -948,6 +994,10 @@
 
         async function translateWithOpenRouter(prompt) {
             const apiKey = openRouterApiKey.value.trim();
+            if (!currentOpenRouterModel) {
+                translationStatus.textContent = 'لطفاً یک مدل OpenRouter انتخاب کنید';
+                return '';
+            }
             try {
                 const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
@@ -956,7 +1006,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'openai/gpt-3.5-turbo',
+                        model: currentOpenRouterModel,
                         messages: [{ role: 'user', content: prompt }],
                         max_tokens: 2000,
                         stream: true
@@ -1020,7 +1070,7 @@
             inputText.value = '';
             outputText.value = '';
             partialTranslation = '';
-            srtBlocks = []; // پاک کردن بلوک‌های SRT
+            srtBlocks = [];
             translationStatus.textContent = '';
             detectedLang.textContent = 'تشخیص خودکار';
             adjustTextareaHeight();
@@ -1190,7 +1240,7 @@
             adjustTextareaHeight();
             translationStatus.textContent = 'ترجمه از تاریخچه بارگذاری شد';
             setTimeout(() => translationStatus.textContent = '', 2000);
-            srtBlocks = []; // اگر SRT بود، پاک می‌کنیم چون تاریخچه ممکنه SRT نباشه
+            srtBlocks = [];
         }
 
         window.deleteHistoryItem = function(index) {
