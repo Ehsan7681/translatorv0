@@ -28,7 +28,7 @@
 2. **نصب**:
    - مخزن رو کلون کنید:
      ```bash
-     git clone https://github.com/YOUR_USERNAME/Translator.git
+     (https://ehsan7681.github.io/translatorv0/)
      ```
    - یا فایل `index.html` رو مستقیم توی مرورگر باز کنید.
 
