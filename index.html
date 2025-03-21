@@ -288,10 +288,9 @@
             background-color: var(--accent-color);
         }
 
-        .theme-toggle {
+        .theme-toggle, .donate-toggle {
             position: fixed;
             bottom: 20px;
-            left: 20px;
             background-color: var(--primary-color);
             color: white;
             border: none;
@@ -305,6 +304,71 @@
             box-shadow: 0 2px 6px var(--shadow-color);
             z-index: 1000;
             font-size: 1.2rem;
+        }
+
+        .theme-toggle {
+            left: 20px;
+        }
+
+        .donate-toggle {
+            right: 20px;
+        }
+
+        .donate-toggle:hover, .theme-toggle:hover {
+            background-color: var(--accent-color);
+        }
+
+        .donate-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--input-bg);
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            z-index: 2000;
+            max-width: 90%;
+            width: 300px;
+            text-align: center;
+        }
+
+        .donate-modal h3 {
+            font-family: 'B Titr', sans-serif;
+            font-size: var(--font-size-main);
+            margin-bottom: 0.5rem;
+        }
+
+        .donate-modal p {
+            font-family: 'B Nazanin', sans-serif;
+            font-size: var(--font-size-sub);
+            margin-bottom: 0.5rem;
+        }
+
+        .donate-modal code {
+            background-color: var(--background-color);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            word-break: break-all;
+            display: inline-block;
+            margin-bottom: 0.5rem;
+        }
+
+        .donate-modal button {
+            padding: 0.5rem 1rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            font-family: 'B Titr', sans-serif;
+            font-size: var(--font-size-main);
+        }
+
+        .donate-modal button:hover {
+            background-color: var(--accent-color);
         }
 
         .history-section {
@@ -381,6 +445,9 @@
             }
             .translate-button, .stop-button, .clear-button, .swap-button, .copy-button, .save-button, .save-srt-button {
                 width: 100%;
+            }
+            .donate-modal {
+                width: 90%;
             }
         }
     </style>
@@ -507,12 +574,24 @@
             برنامه‌نویس: احسان شمسی
         </footer>
     </div>
+
     <button class="theme-toggle" id="themeToggle">🌙</button>
+    <button class="donate-toggle" id="donateToggle">💰</button>
+
+    <div class="donate-modal" id="donateModal">
+        <h3>حمایت از پروژه</h3>
+        <p>با ارسال تتر (USDT) در شبکه TRC20 از ما حمایت کنید:</p>
+        <code>TNqog2Et8ES6rBzGeUB1tbAivhp6ZXkkp9</code>
+        <button id="copyDonateButton">کپی آدرس</button>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script>
         const themeToggle = document.getElementById('themeToggle');
+        const donateToggle = document.getElementById('donateToggle');
+        const donateModal = document.getElementById('donateModal');
+        const copyDonateButton = document.getElementById('copyDonateButton');
         const body = document.body;
         const inputText = document.getElementById('inputText');
         const outputText = document.getElementById('outputText');
@@ -550,7 +629,7 @@
         let currentTheme = 'light';
         let currentTone = 'formal';
         let currentModel = 'lm-studio';
-        let currentOpenRouterModel = 'openai/gpt-3.5-turbo'; // پیش‌فرض OpenRouter
+        let currentOpenRouterModel = 'openai/gpt-3.5-turbo';
         let isLmConnected = false;
         let isGeminiConnected = false;
         let isOpenRouterConnected = false;
@@ -732,7 +811,7 @@
                     option.textContent = model.name || model.id;
                     modelSelect.appendChild(option);
                 });
-                modelSelect.value = currentOpenRouterModel; // مدل پیش‌فرض رو انتخاب کن
+                modelSelect.value = currentOpenRouterModel;
             } catch (error) {
                 console.error('خطا در بارگذاری مدل‌ها:', error);
                 modelSelect.innerHTML = '<option value="">خطا در بارگذاری مدل‌ها</option>';
@@ -746,6 +825,8 @@
 
         function setupEventListeners() {
             themeToggle.addEventListener('click', toggleTheme);
+            donateToggle.addEventListener('click', toggleDonateModal);
+            copyDonateButton.addEventListener('click', copyDonateAddress);
             translateButton.addEventListener('click', translateText);
             stopButton.addEventListener('click', stopTranslation);
             clearButton.addEventListener('click', clearText);
@@ -773,6 +854,11 @@
             restoreHistory.addEventListener('click', () => restoreHistoryInput.click());
             restoreHistoryInput.addEventListener('change', restoreHistoryFromFile);
             clearHistory.addEventListener('click', clearHistoryList);
+            document.addEventListener('click', (e) => {
+                if (!donateModal.contains(e.target) && !donateToggle.contains(e.target)) {
+                    donateModal.style.display = 'none';
+                }
+            });
         }
 
         function toggleTheme() {
@@ -785,6 +871,18 @@
                 themeToggle.textContent = '🌙';
                 currentTheme = 'light';
             }
+        }
+
+        function toggleDonateModal() {
+            donateModal.style.display = donateModal.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function copyDonateAddress() {
+            const address = "TNqog2Et8ES6rBzGeUB1tbAivhp6ZXkkp9";
+            navigator.clipboard.writeText(address).then(() => {
+                translationStatus.textContent = 'آدرس در کلیپ‌بورد کپی شد';
+                setTimeout(() => translationStatus.textContent = '', 2000);
+            });
         }
 
         function setActiveTone(selectedOption) {
