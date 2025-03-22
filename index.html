@@ -29,6 +29,9 @@
             --status-disconnected: #F44336;
             --font-size-main: clamp(16px, 4vw, 18px);
             --font-size-sub: clamp(14px, 3vw, 16px);
+            --button-text-color: #fff;
+            --status-text-color: var(--secondary-color);
+            --panel-bg: var(--input-bg);
         }
 
         [data-theme="dark"] {
@@ -40,6 +43,9 @@
             --border-color: #2d3748;
             --input-bg: #2a2a3c;
             --shadow-color: rgba(0, 0, 0, 0.3);
+            --button-text-color: #e1e5eb;
+            --status-text-color: #a3bffa;
+            --panel-bg: #2a2a3c;
         }
 
         * {
@@ -99,6 +105,10 @@
             gap: 0.5rem;
         }
 
+        .connection-status .status-text {
+            color: var(--status-text-color);
+        }
+
         .status-indicator {
             width: 10px;
             height: 10px;
@@ -118,13 +128,15 @@
         }
 
         .text-panel {
-            background-color: var(--input-bg);
+            background-color: var(--panel-bg);
             border-radius: 12px;
             box-shadow: 0 4px 12px var(--shadow-color);
             overflow: hidden;
             display: flex;
             flex-direction: column;
             min-height: 150px;
+            max-height: 400px;
+            overflow-y: auto;
             width: 100%;
         }
 
@@ -136,6 +148,7 @@
             border-bottom: 1px solid var(--border-color);
             flex-wrap: wrap;
             gap: 0.5rem;
+            background-color: var(--panel-bg);
         }
 
         .language-selector {
@@ -172,6 +185,8 @@
             line-height: 1.6;
             outline: none;
             min-height: 100px;
+            max-height: none;
+            overflow-y: visible;
         }
 
         .button-container {
@@ -185,7 +200,7 @@
         .translate-button, .stop-button, .clear-button, .swap-button, .copy-button, .save-button, .save-srt-button {
             padding: 0.6rem 1.5rem;
             background-color: var(--primary-color);
-            color: white;
+            color: var(--button-text-color);
             border: none;
             border-radius: 8px;
             cursor: pointer;
@@ -215,7 +230,7 @@
         .translation-status {
             text-align: center;
             margin: 0.5rem 0;
-            color: var(--secondary-color);
+            color: var(--status-text-color);
         }
 
         .controls {
@@ -226,7 +241,7 @@
         }
 
         .control-group {
-            background-color: var(--input-bg);
+            background-color: var(--panel-bg);
             border-radius: 12px;
             padding: 0.8rem;
             box-shadow: 0 4px 12px var(--shadow-color);
@@ -252,7 +267,7 @@
 
         .control-option:hover, .control-option.active {
             background-color: var(--primary-color);
-            color: white;
+            color: var(--button-text-color);
             border-color: var(--primary-color);
         }
 
@@ -277,7 +292,7 @@
         .api-settings button, .customization-settings button {
             padding: 0.5rem 1rem;
             background-color: var(--primary-color);
-            color: white;
+            color: var(--button-text-color);
             border: none;
             border-radius: 6px;
             cursor: pointer;
@@ -292,7 +307,7 @@
             position: fixed;
             bottom: 20px;
             background-color: var(--primary-color);
-            color: white;
+            color: var(--button-text-color);
             border: none;
             border-radius: 50%;
             width: 40px;
@@ -324,7 +339,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: var(--input-bg);
+            background-color: var(--panel-bg);
             padding: 1rem;
             border-radius: 12px;
             box-shadow: 0 4px 12px var(--shadow-color);
@@ -338,12 +353,14 @@
             font-family: 'B Titr', sans-serif;
             font-size: var(--font-size-main);
             margin-bottom: 0.5rem;
+            color: var(--text-color);
         }
 
         .donate-modal p {
             font-family: 'B Nazanin', sans-serif;
             font-size: var(--font-size-sub);
             margin-bottom: 0.5rem;
+            color: var(--text-color);
         }
 
         .donate-modal code {
@@ -353,12 +370,13 @@
             word-break: break-all;
             display: inline-block;
             margin-bottom: 0.5rem;
+            color: var(--text-color);
         }
 
         .donate-modal button {
             padding: 0.5rem 1rem;
             background-color: var(--primary-color);
-            color: white;
+            color: var(--button-text-color);
             border: none;
             border-radius: 6px;
             cursor: pointer;
@@ -374,7 +392,7 @@
         .history-section {
             margin-top: 1rem;
             padding: 1rem;
-            background-color: var(--input-bg);
+            background-color: var(--panel-bg);
             border-radius: 12px;
             box-shadow: 0 4px 12px var(--shadow-color);
         }
@@ -393,11 +411,12 @@
             align-items: center;
             font-family: 'B Nazanin', sans-serif;
             font-size: var(--font-size-sub);
+            color: var(--text-color);
         }
 
         .history-item button {
             background-color: #ff4444;
-            color: white;
+            color: var(--button-text-color);
             border: none;
             padding: 0.3rem 0.6rem;
             border-radius: 4px;
@@ -426,6 +445,8 @@
             .text-panel {
                 width: 50%;
                 min-height: 250px;
+                max-height: 500px;
+                overflow-y: auto;
             }
             .controls {
                 display: grid;
@@ -439,6 +460,7 @@
             }
             .text-panel {
                 min-height: 120px;
+                max-height: 300px;
             }
             .button-container {
                 flex-direction: column;
@@ -496,7 +518,7 @@
                         </div>
                     </div>
                     <div class="panel-content">
-                        <textarea id="outputText" placeholder="ترجمه در اینجا نمایش داده می‌شود..." readonly></textarea>
+                        <textarea id="outputText" placeholder="ترجمه در اینجا نمایش داده می‌شود..."></textarea>
                     </div>
                 </div>
             </div>
@@ -524,6 +546,7 @@
                         <div class="control-option" data-tone="humorous">طنزآمیز</div>
                         <div class="control-option" data-tone="professional">حرفه‌ای</div>
                         <div class="control-option" data-tone="childish">کودکانه</div>
+                        <div class="control-option" data-tone="subtitle">ترجمه زیرنویس</div>
                     </div>
                 </div>
 
@@ -629,7 +652,7 @@
         let currentTheme = 'light';
         let currentTone = 'formal';
         let currentModel = 'lm-studio';
-        let currentOpenRouterModel = 'openai/gpt-3.5-turbo';
+        let currentOpenRouterModel = 'google/gemma-3-27b'; // مدل پیش‌فرض به google/gemma-3-27b تغییر کرد
         let isLmConnected = false;
         let isGeminiConnected = false;
         let isOpenRouterConnected = false;
@@ -932,40 +955,61 @@
 
             let toneInstruction = '';
             switch (currentTone) {
-                case 'formal': toneInstruction = 'Translate formally: '; break;
-                case 'informal': toneInstruction = 'Translate informally: '; break;
-                case 'literary': toneInstruction = 'Translate in a literary style: '; break;
-                case 'scientific': toneInstruction = 'Translate in a scientific tone: '; break;
-                case 'summary': toneInstruction = 'First translate formally, then summarize informally: '; break;
-                case 'friendly': toneInstruction = 'Translate in a friendly tone: '; break;
-                case 'humorous': toneInstruction = 'Translate with a humorous tone: '; break;
-                case 'professional': toneInstruction = 'Translate in a professional tone: '; break;
-                case 'childish': toneInstruction = 'Translate in a childish tone suitable for kids: '; break;
+                case 'formal': toneInstruction = 'Translate the following text formally into Persian (Farsi): '; break;
+                case 'informal': toneInstruction = 'Translate the following text informally into Persian (Farsi): '; break;
+                case 'literary': toneInstruction = 'Translate the following text in a literary style into Persian (Farsi): '; break;
+                case 'scientific': toneInstruction = 'Translate the following text in a scientific tone into Persian (Farsi): '; break;
+                case 'summary': toneInstruction = 'First translate the following text formally into Persian (Farsi), then summarize it informally: '; break;
+                case 'friendly': toneInstruction = 'Translate the following text in a friendly tone into Persian (Farsi): '; break;
+                case 'humorous': toneInstruction = 'Translate the following text with a humorous tone into Persian (Farsi): '; break;
+                case 'professional': toneInstruction = 'Translate the following text in a professional tone into Persian (Farsi): '; break;
+                case 'childish': toneInstruction = 'Translate the following text in a childish tone suitable for kids into Persian (Farsi): '; break;
+                case 'subtitle': toneInstruction = 'Translate the following subtitle text into Persian (Farsi) with an informal, conversational style suitable for subtitles. Do not add any extra text beyond the translation. Preserve proper names and website names in their original form: '; break;
             }
 
-            if (srtBlocks.length > 0) {
+            if (currentTone === 'subtitle' && srtBlocks.length > 0) {
                 outputText.value = srtBlocks.map(block => `${block.index}\n${block.timestamp}\n${block.text}`).join('\n\n');
                 adjustTextareaHeight();
+                const chunkSize = 1; // هر بلوک جداگانه ترجمه شود
                 for (let i = 0; i < srtBlocks.length; i++) {
                     if (!isTranslating) break;
-                    const translatedText = await translateChunk(srtBlocks[i].text, sourceLang, targetLang, toneInstruction);
-                    srtBlocks[i].text = translatedText;
-                    outputText.value = srtBlocks.map(block => `${block.index}\n${block.timestamp}\n${block.text}`).join('\n\n');
+                    const block = srtBlocks[i];
+                    const translatedText = await translateChunk(block.text, sourceLang, targetLang, toneInstruction);
+                    srtBlocks[i].text = translatedText.trim(); // فقط متن ترجمه‌شده بدون اضافه‌ها
+                    outputText.value = srtBlocks.map(b => `${b.index}\n${b.timestamp}\n${b.text}`).join('\n\n');
+                    adjustTextareaHeight();
+                }
+            } else if (srtBlocks.length > 0) {
+                outputText.value = srtBlocks.map(block => `${block.index}\n${block.timestamp}\n${block.text}`).join('\n\n');
+                adjustTextareaHeight();
+                const chunkSize = 1;
+                for (let i = 0; i < srtBlocks.length; i++) {
+                    if (!isTranslating) break;
+                    const block = srtBlocks[i];
+                    const translatedText = await translateChunk(block.text, sourceLang, targetLang, toneInstruction);
+                    srtBlocks[i].text = translatedText.trim();
+                    outputText.value = srtBlocks.map(b => `${b.index}\n${b.timestamp}\n${b.text}`).join('\n\n');
                     adjustTextareaHeight();
                 }
             } else {
-                const maxChunkSize = 2000;
+                const maxChunkSize = 1000;
                 if (textToTranslate.length > maxChunkSize) {
                     const chunks = [];
                     for (let i = 0; i < textToTranslate.length; i += maxChunkSize) {
                         chunks.push(textToTranslate.slice(i, i + maxChunkSize));
                     }
+                    let translatedText = '';
                     for (const chunk of chunks) {
-                        await translateChunk(chunk, sourceLang, targetLang, toneInstruction);
                         if (!isTranslating) break;
+                        const result = await translateChunk(chunk, sourceLang, targetLang, toneInstruction);
+                        translatedText += result + '\n';
+                        outputText.value = translatedText.trim();
+                        adjustTextareaHeight();
                     }
                 } else {
-                    await translateChunk(textToTranslate, sourceLang, targetLang, toneInstruction);
+                    const translatedText = await translateChunk(textToTranslate, sourceLang, targetLang, toneInstruction);
+                    outputText.value = translatedText;
+                    adjustTextareaHeight();
                 }
             }
 
@@ -977,7 +1021,7 @@
         }
 
         async function translateChunk(text, sourceLang, targetLang, toneInstruction) {
-            lastPrompt = `${toneInstruction}"${text}" from ${sourceLang} to ${targetLang}. Provide only the translated text in the target language.`;
+            lastPrompt = `${toneInstruction}"${text}"`;
             if (currentModel === 'lm-studio') {
                 return await translateWithLmStudio(lastPrompt);
             } else if (currentModel === 'gemini') {
@@ -1018,8 +1062,7 @@
                             const parsed = JSON.parse(data);
                             fullTranslation += parsed.choices[0].text || '';
                             if (srtBlocks.length === 0) {
-                                outputText.value = outputText.value + fullTranslation;
-                                outputText.scrollTop = outputText.scrollHeight;
+                                outputText.value = fullTranslation;
                                 adjustTextareaHeight();
                             }
                         }
@@ -1059,7 +1102,7 @@
 
                 if (currentTone === 'summary') {
                     const formalPart = fullTranslation;
-                    const summaryPrompt = `Summarize informally in ${outputLanguage.value}: "${formalPart}"`;
+                    const summaryPrompt = `Summarize informally in Persian (Farsi): "${formalPart}"`;
                     const summaryResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1072,8 +1115,7 @@
                 }
 
                 if (srtBlocks.length === 0) {
-                    outputText.value = outputText.value ? outputText.value + '\n' + fullTranslation : fullTranslation;
-                    outputText.scrollTop = outputText.scrollHeight;
+                    outputText.value = fullTranslation;
                     adjustTextareaHeight();
                 }
                 partialTranslation = fullTranslation;
@@ -1130,7 +1172,6 @@
                             fullTranslation += parsed.choices[0].delta.content || '';
                             if (srtBlocks.length === 0) {
                                 outputText.value = fullTranslation;
-                                outputText.scrollTop = outputText.scrollHeight;
                                 adjustTextareaHeight();
                             }
                         }
